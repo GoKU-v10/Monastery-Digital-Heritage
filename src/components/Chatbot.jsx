@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import Icon from './AppIcon';
 import Button from './ui/Button';
 
@@ -10,6 +11,9 @@ const Chatbot = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Securely get the API key from environment variables
+  const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -28,25 +32,21 @@ const Chatbot = () => {
     setIsLoading(true);
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      // Get the correct generative model
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+      const prompt = `You are a helpful assistant for a monastery digital heritage platform. Answer questions about Buddhist monasteries, virtual tours, meditation, cultural preservation, and spiritual practices. Keep responses concise and helpful. User question: ${input}`;
+
+      // Call the API with the prompt
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
       
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-exp:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are a helpful assistant for a monastery digital heritage platform. Answer questions about Buddhist monasteries, virtual tours, meditation, cultural preservation, and spiritual practices. Keep responses concise and helpful. User question: ${input}`
-            }]
-          }]
-        })
-      });
-      
-      const data = await response.json();
-      const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't process that request.";
+      // Get the text from the response correctly
+      const botResponse = response.text();
       
       setMessages(prev => [...prev, { id: Date.now(), text: botResponse, sender: 'bot' }]);
     } catch (error) {
+      console.error('Gemini API Error:', error);
       setMessages(prev => [...prev, { id: Date.now(), text: "Sorry, I'm having trouble connecting. Please try again.", sender: 'bot' }]);
     }
     
